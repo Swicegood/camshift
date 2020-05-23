@@ -18,11 +18,5 @@
     <ClCompile Include="Camshift.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="CatureTest.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CapTest.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
 </Project>

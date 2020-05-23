@@ -6,37 +6,13 @@
 #include <opencv2/video.hpp>
 using namespace cv;
 using namespace std;
-int main(int argc, char** argv)
+int main()
 {
-    const string about =
-        "This sample demonstrates the camshift algorithm.\n"
-        "The example file can be downloaded from:\n"
-        "  https://www.bogotobogo.com/python/OpenCV_Python/images/mean_shift_tracking/slow_traffic_small.mp4";
-    const string keys =
-        "{ h help |      | print this help message }"
-        "{ @image |<none>| path to image file }";
-    CommandLineParser parser(argc, argv, keys);
-    parser.about(about);
-    if (parser.has("help"))
-    {
-        parser.printMessage();
-        return 0;
-    }
-    string filename = parser.get<string>("@image");
-    if (!parser.check())
-    {
-        parser.printErrors();
-        return 0;
-    }
-    VideoCapture capture(filename);
-    if (!capture.isOpened()) {
-        //error in opening the video input
-        cerr << "Unable to open file!" << endl;
-        return 0;
-    }
+    VideoCapture cam;
+    while (!cam.open(0))cerr << "failed to open cam" << endl;
     Mat frame, roi, hsv_roi, mask;
     // take first frame of the video
-    capture >> frame;
+    cam >> frame;
     // setup initial location of window
     Rect track_window(300, 200, 100, 50); // simply hardcoded the values
     // set up the ROI for tracking
@@ -54,7 +30,7 @@ int main(int argc, char** argv)
     TermCriteria term_crit(TermCriteria::EPS | TermCriteria::COUNT, 10, 1);
     while (true) {
         Mat hsv, dst;
-        capture >> frame;
+        cam >> frame;
         if (frame.empty())
             break;
         cvtColor(frame, hsv, COLOR_BGR2HSV);
@@ -66,8 +42,65 @@ int main(int argc, char** argv)
         rot_rect.points(points);
         for (int i = 0; i < 4; i++)
             line(frame, points[i], points[(i + 1) % 4], 255, 2);
+       /* Mat roi_final;
+        roi_final = frame;
+        bool fullscreen(false);
+        float width(points[3].x - points[0].x);
+        float height(points[2].y - points[1].y);
+        if (width < 0 || height < 0 || width > frame.cols || height > frame.cols)
+            fullscreen = true;
+        Point2f new_p[4];
+        for (int i = 0; i < 4; i++) {
+            if ((points[i].x < 0) || (points[i].y < 0) || (points[i].x > frame.cols) || (points[i].y > frame.rows)) {
+                fullscreen = true;
+                break;
+            }
+
+        }
+        for (int i = 0; i < 4; i++) {
+            switch (i)
+            {
+            case 0:
+                new_p[i].x = (points[i].x - width);
+                new_p[i].y = (points[i].y - width);
+                break;
+            case 1:
+                new_p[i].x = (points[i].x + width);
+                new_p[i].y = (points[i].y - width);
+                break;
+            case 2:
+                new_p[i].x = (points[i].x - width);
+                new_p[i].y = (points[i].y + width);
+                break;
+            case 3:
+                new_p[i].x = (points[i].x - width);
+                new_p[i].y = (points[i].y + width);
+                break;
+           
+            }
+            if (new_p[i].x < 0)
+                new_p[i].x = 0;
+            if (new_p[i].x > frame.cols)
+                new_p[i].x = frame.cols;
+            if (new_p[i].y < 0)
+                new_p[i].y = 0;
+            if (new_p[i].y > frame.rows)
+                new_p[i].y = frame.rows;
+
+        }
+       
+        if (((new_p[3].x - new_p[0].x) > frame.cols) || ((new_p[2].y - new_p[1].y) > frame.rows)) 
+            fullscreen = true;
+        int new_w(new_p[3].x - new_p[0].x);
+        int new_h(new_p[2].y - new_p[1].y);
+        if (((new_p[0].x + new_w) > frame.cols) || ((new_p[0].y + new_h) > frame.rows))
+            fullscreen = true;
+        if (!fullscreen) {
+            Rect window(new_p[0].x, new_p[0].y, new_w, new_h);
+            roi_final = frame(window);
+        }*/
         imshow("img2", frame);
-        int keyboard = waitKey(30);
+         int keyboard = waitKey(30);
         if (keyboard == 'q' || keyboard == 27)
             break;
     }
