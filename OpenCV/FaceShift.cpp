@@ -52,7 +52,8 @@ int main(int argc, const char** argv)
     Mat z_frame, z_frame2;
     roi = Rect(0, 0, frame.cols, frame.rows);
     Rect cur_roi(0, 0, frame.cols, frame.rows);
-    float vx = 20, vy = 20, vw = 20, vh = 20;
+    float v = 10;
+    float d=0;
         while (capture.read(frame))
     {
         // Handle Timing
@@ -72,29 +73,48 @@ int main(int argc, const char** argv)
         
         if (i % 90 == 0)
             std::thread(detectAndDisplay,frame).detach(); 
-            
+        d = ceil(v * fElapsedTime);
+        int dx(abs(cur_roi.x - roi.x));
+
         if (!roi.empty() && !cur_roi.empty()){
             
             if (cur_roi.x - roi.x > 0)
-                cur_roi.x = cur_roi.x - vx * fElapsedTime;
+                cur_roi.x = cur_roi.x - d;
             else if (cur_roi.x - roi.x < 0)
-                cur_roi.x = cur_roi.x + vx * fElapsedTime;
-            
+                cur_roi.x = cur_roi.x + d;
+            if (cur_roi.x < 0)
+                cur_roi.x = 0;
+            if (cur_roi.x > frame.cols)
+                cur_roi.x = frame.cols;
+
             if (cur_roi.y - roi.y > 0)
-                cur_roi.y = cur_roi.y - vy * fElapsedTime;
+                cur_roi.y = cur_roi.y - d;
             else if (cur_roi.y - roi.y < 0)
-                cur_roi.y = cur_roi.y + vy * fElapsedTime;
+                cur_roi.y = cur_roi.y + d;
+            if (cur_roi.y < 0)
+                cur_roi.y = 0;
+            if (cur_roi.y > frame.rows)
+                cur_roi.y = frame.rows;
             
             if (cur_roi.width - roi.width > 0)
-                cur_roi.width = cur_roi.width - vw * fElapsedTime;
+                cur_roi.width = cur_roi.width - d;
             else if (cur_roi.width - roi.width < 0)
-                cur_roi.width = cur_roi.width + vw * fElapsedTime;
+                cur_roi.width = cur_roi.width + d;
+            if (cur_roi.width < 0)
+                cur_roi.width = 0;
+            if (cur_roi.width > frame.cols)
+                cur_roi.width = frame.cols;
 
             if (cur_roi.height - roi.height > 0)
-                cur_roi.height = cur_roi.height - vh  * fElapsedTime;
+                cur_roi.height = cur_roi.height - d;
             else if (cur_roi.height - roi.height < 0)
-                cur_roi.height = cur_roi.height + vh * fElapsedTime;
+                cur_roi.height = cur_roi.height + d;
+            if (cur_roi.height < 0)
+                cur_roi.height = 0;
+            if (cur_roi.height > frame.rows)
+                cur_roi.height = frame.rows;
 
+            d = 0;
 
             z_frame = frame(cur_roi);
             resize(z_frame, z_frame, frame.size(), 0, 0, INTER_LINEAR);
