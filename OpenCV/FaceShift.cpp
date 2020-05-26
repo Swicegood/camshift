@@ -4,6 +4,10 @@
 #include "opencv2/videoio.hpp"
 #include <iostream>
 #include <thread>
+#include <winsock2.h>
+#include <Ws2tcpip.h>
+
+#pragma comment(lib,"ws2_32.lib") //Winsock Library
 
 using namespace std;
 using namespace cv;
@@ -39,6 +43,54 @@ int main(int argc, const char** argv)
         return -1;
     };
     int camera_device = parser.get<int>("camera");
+
+    
+
+    WSADATA wsa;
+    SOCKET s;
+    sockaddr_in server;
+    int iResult;
+
+    cout << "Initializing WInsock..." << endl;
+
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+        cout << "Failed. Error Code :" << WSAGetLastError() << endl;
+        return 1;
+        }
+     
+    cout << "Ininialized." << endl;
+
+    if ((s = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET)
+        cout << "Could not create socket :" <<  WSAGetLastError() << endl;
+
+    cout << "Socket created." << endl;
+
+    server.sin_addr.s_addr = inet_addr("127.0.0.1");
+    server.sin_family = AF_INET;
+    server.sin_port = htons(2345);
+
+
+
+    iResult = bind(s, (SOCKADDR *)&server, sizeof(server));
+    if (iResult == SOCKET_ERROR)
+    {
+        puts("Bind failed");
+        return 1;
+    }
+    else
+        cout << "Bind Connected" << endl;;
+
+
+    // Connect to localhost
+
+    //if (connect(s, (struct sockaddr*)&server, sizeof(server)) < 0) {
+    //    puts("Conncet errror");
+    //    return 1;
+
+    //}
+
+    //puts("Connected");
+
     VideoCapture capture;
     //-- 2. Read the video stream
     capture.open(camera_device);
@@ -119,6 +171,7 @@ int main(int argc, const char** argv)
             z_frame = frame(cur_roi);
             resize(z_frame, z_frame, frame.size(), 0, 0, INTER_LINEAR);
             imshow("Capture - Face detection", z_frame);
+            
         }
         if (waitKey(10) == 27)
         {
