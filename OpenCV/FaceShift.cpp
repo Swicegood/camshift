@@ -79,9 +79,7 @@ int main(int argc, const char** argv)
     Rect cur_roi(0, 0, frame.cols, frame.rows);
     float v = 30;
     float d=0;
-    float dx_a, dy_a, dw_a;
     bool zooming = false;
-    Rect w_roi;
         while (capture.read(frame))
         {
         // Handle Timing
@@ -107,49 +105,40 @@ int main(int argc, const char** argv)
         float D = sqrt((dx * dx) + (dy * dy));
         
  
-        if (D > 120 && !zooming) {
-            w_roi = roi;
-            zooming = true;
-            dx_a = cur_roi.x;
-            dy_a = cur_roi.y;
-            dw_a = cur_roi.width;
+        if (D > 60) {         
+            zooming = true;       
         }
         
-        if (!w_roi.empty() && !cur_roi.empty()) {
+        if (!roi.empty() && !cur_roi.empty()) {
             if (zooming) {
                 d =  (v * fElapsedTime);
 
-                if (dx_a - w_roi.x > 0)
-                    dx_a = dx_a - d;
-                else if (dx_a - w_roi.x < 0)
-                    dx_a = dx_a + d;
-                if (dx_a < 0)
-                    dx_a = 0;
-                if (dx_a > frame.cols)
-                    dx_a = frame.cols;
+                if (cur_roi.x - roi.x > 0)
+                    cur_roi.x = cur_roi.x - d;
+                else if (cur_roi.x - roi.x < 0)
+                    cur_roi.x = cur_roi.x + d;
+                if (cur_roi.x < 0)
+                    cur_roi.x = 0;
+                if (cur_roi.x > frame.cols)
+                    cur_roi.x = frame.cols;
 
-                if (dy_a - w_roi.y > 0)
-                    dy_a = dy_a - d;
-                else if (dy_a - w_roi.y < 0)
-                    dy_a = dy_a + d;
+                if (cur_roi.y - roi.y > 0)
+                    cur_roi.y = cur_roi.y - d;
+                else if (cur_roi.y - roi.y < 0)
+                    cur_roi.y = cur_roi.y + d;
+                if (cur_roi.y < 0)
+                    cur_roi.y = 0;
+                if (cur_roi.y > frame.rows)
+                    cur_roi.y = frame.rows;
 
-                if (dy_a < 0)
-                    dy_a = 0;
-                if (dy_a > frame.rows)
-                    dy_a = frame.rows;
-
-                if (dw_a - w_roi.width > 0)
-                    dw_a = dw_a - d;
-                else if (dw_a - w_roi.width < 0)
-                    dw_a = dw_a + d;
-                if (dw_a < 0)
-                    dw_a = 0;
-                if (dw_a > frame.cols)
-                    dw_a = frame.cols;
-                
-            cur_roi.x = dx_a;
-            cur_roi.y = dy_a;
-            cur_roi.width = dw_a;
+                if (cur_roi.width - roi.width > 0)
+                    cur_roi.width = cur_roi.width - d;
+                else if (cur_roi.width - roi.width < 0)
+                    cur_roi.width = cur_roi.width + d;
+                if (cur_roi.width < 0)
+                    cur_roi.width = 0;
+                if (cur_roi.width > frame.cols)
+                    cur_roi.width = frame.cols;
             }
             /*  if (cur_roi.height - roi.height > 0)
                   cur_roi.height = cur_roi.height - d;
