@@ -33,8 +33,11 @@ auto tp2 = std::chrono::system_clock::now();
 SOCKET ListenSocket = INVALID_SOCKET;
 SOCKET ClientSocket = INVALID_SOCKET;
 
+bool done = true;
+
 int main(int argc, const char** argv)
 {
+    
     CommandLineParser parser(argc, argv,
         "{help h||}"
         "{face_cascade|data/haarcascades/haarcascade_frontalface_alt.xml|Path to face cascade.}"
@@ -72,16 +75,31 @@ int main(int argc, const char** argv)
         std::cout << "--(!)Error opening video capture\n";
         return -1;
     }
+    VideoWriter writer(
+        "appsrc ! videoconvert ! video/x-raw,format=YUY2,width=640,height=480,framerate=30/1 ! jpegenc ! rtpjpegpay ! udpsink host=127.0.0.1 port=5000",
+        CAP_GSTREAMER,
+        0, // four cc
+        30, //fps
+        Size(640, 480),
+        true); //isColor
+    if (!writer.isOpened()) {
+        std::cerr << "VideoWriter not opened" << std::endl;
+        exit(-1);
+    }
     Mat frame;
     int i = 0; 
     Mat z_frame, z_frame2;
     roi = Rect(0, 0, frame.cols, frame.rows);
     Rect cur_roi(0, 0, frame.cols, frame.rows);
-    float v = 30;
+    int v = 90;
     float d=0;
-    bool zooming = false;
+    bool zoom_reached = true;
+    Rect target_roi;
+    float ar = (float(frame.rows) / float(frame.cols));
         while (capture.read(frame))
         {
+        //Apsect ratio
+        float ar = (float(frame.rows) / float(frame.cols));
         // Handle Timing
         tp2 = std::chrono::system_clock::now();
         std::chrono::duration<float> elapsedTime = tp2 - tp1;
@@ -96,63 +114,48 @@ int main(int argc, const char** argv)
         //-- 3. Apply the classifier to the frame
         if (i == 0)
             cur_roi = Rect(0, 0, frame.cols, frame.rows);
-        
-        if (i % 90 == 0)
+
+        if (done && zoom_reached) {
+            target_roi = roi;
+            done = false;
+        }
+
+        if (i % v == 0)
             std::thread(detectAndDisplay,frame).detach(); 
        
-        float dx(abs(cur_roi.x - roi.x));
-        float dy(abs(cur_roi.y - roi.y));
+        float dx(target_roi.x - cur_roi.x);
+        float dy(target_roi.y - cur_roi.y);
+        float dw(target_roi.width - cur_roi.width);
         float D = sqrt((dx * dx) + (dy * dy));
         
  
         if (D > 60) {         
-            zooming = true;       
+            zoom_reached = false;       
         }
         
-        if (!roi.empty() && !cur_roi.empty()) {
-            if (zooming) {
-                d =  (v * fElapsedTime);
-
-                if (cur_roi.x - roi.x > 0)
-                    cur_roi.x = cur_roi.x - d;
-                else if (cur_roi.x - roi.x < 0)
-                    cur_roi.x = cur_roi.x + d;
-                if (cur_roi.x < 0)
-                    cur_roi.x = 0;
-                if (cur_roi.x > frame.cols)
-                    cur_roi.x = frame.cols;
-
-                if (cur_roi.y - roi.y > 0)
-                    cur_roi.y = cur_roi.y - d;
-                else if (cur_roi.y - roi.y < 0)
-                    cur_roi.y = cur_roi.y + d;
-                if (cur_roi.y < 0)
-                    cur_roi.y = 0;
-                if (cur_roi.y > frame.rows)
-                    cur_roi.y = frame.rows;
-
-                if (cur_roi.width - roi.width > 0)
-                    cur_roi.width = cur_roi.width - d;
-                else if (cur_roi.width - roi.width < 0)
-                    cur_roi.width = cur_roi.width + d;
-                if (cur_roi.width < 0)
-                    cur_roi.width = 0;
-                if (cur_roi.width > frame.cols)
-                    cur_roi.width = frame.cols;
-            }
-            /*  if (cur_roi.height - roi.height > 0)
-                  cur_roi.height = cur_roi.height - d;
-              else if (cur_roi.height - roi.height < 0)
-                  cur_roi.height = cur_roi.height + d;
-              if (cur_roi.height < 0)
-                  cur_roi.height = 0;
-              if (cur_roi.height > frame.rows)
-                  cur_roi.height = frame.rows;*/
+        if (!target_roi.empty() && !cur_roi.empty()) {
             
+            d =  (v * fElapsedTime);
 
+            cur_roi.x = (dx / v) >= 0 ? (cur_roi.x) + ceil(dx / v) : (cur_roi.x) + floor(dx / v);
+            if (cur_roi.x < 0)
+                cur_roi.x = 0;
+            if (cur_roi.x > frame.cols)
+                cur_roi.x = frame.cols;
 
+            cur_roi.y = (dy / v) >= 0? (cur_roi.y) + ceil(dy / v) : (cur_roi.y) + floor(dy / v);
+            if (cur_roi.y < 0)
+                cur_roi.y = 0;
+            if (cur_roi.y > frame.rows)
+                cur_roi.y = frame.rows;
 
-            cur_roi.height = floor(float(cur_roi.width) * (float(frame.rows) / float(frame.cols)));
+            cur_roi.width = (dw / v) >= 0 ? ((cur_roi.width) + ceil(dw / v)) : ((cur_roi.width) + floor(dw / v));
+            if (cur_roi.width < 0)
+                cur_roi.width = 0;
+            if (cur_roi.width > frame.cols)
+                cur_roi.width = frame.cols;
+           
+            cur_roi.height = floor(float(cur_roi.width) * ar );
             if (cur_roi.height + cur_roi.y > frame.rows)
                 cur_roi.height = frame.rows - cur_roi.y;
                                       
@@ -161,10 +164,11 @@ int main(int argc, const char** argv)
             imshow("Capture - Face detection", z_frame);
             z_frame = (z_frame.reshape(0, 1)); // to make it continuous           
             int  imgSize = z_frame.total() * z_frame.elemSize();
+            writer.write(z_frame);
             if (ClientSocket != INVALID_SOCKET)
                 int bytes = send(ClientSocket, reinterpret_cast<const char*>(z_frame.data), imgSize, 0);
-            if (cur_roi.x == roi.x && cur_roi.y == roi.y) {
-                zooming = false;
+            if (abs(cur_roi.x - target_roi.x) < 2 && abs(cur_roi.y - target_roi.y) < 2) {
+                zoom_reached = true;
                 d = 0;
             }
 
@@ -208,13 +212,13 @@ void detectAndDisplay(Mat frame)
     else{
         int new_w(3 * faces[0].width);
         int new_h(floor(float(new_w) * (float(frame.rows) / float(frame.cols))));
-    /*    int new_h(3 * faces[0].height);*/
+  //      int new_h(3 * faces[0].height);
         if (new_w > frame.cols)
             new_w = frame.cols;
         if (new_h > frame.rows)
             new_h = frame.rows;
         Point _center(faces[0].x + faces[0].width / 2, faces[0].y + faces[0].height / 2);
-        Point crop_p(_center.x - .5 * new_w, _center.y - .5 * new_h);
+        Point crop_p(_center.x - .5 * new_w, _center.y -  .5 * new_h);
         if (crop_p.x + new_w > frame.cols)
             crop_p.x = frame.cols - new_w;
         else if (crop_p.x < 0)
@@ -226,6 +230,7 @@ void detectAndDisplay(Mat frame)
         //-- Show what you got    
         roi= Rect(crop_p.x, crop_p.y, new_w, new_h);
         Mat z_frame= frame(roi);
+        done = true;
     }
 }
 int my_s() {
