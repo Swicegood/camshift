@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="FaceShift.cpp">
+    <ClCompile Include="CamShift.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
