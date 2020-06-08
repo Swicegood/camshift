@@ -12,16 +12,12 @@
 #include "opencv2/videoio.hpp"
 #include <iostream>
 #include <thread>
-#include <winsock2.h>
-#include <Ws2tcpip.h>
 #include <stdio.h>
 
-#pragma comment(lib,"ws2_32.lib") //Winsock Library
 
 //using namespace std;
 using namespace cv;
 void detectAndDisplay(Mat frame);
-int my_s();
 CascadeClassifier face_cascade;
 CascadeClassifier eyes_cascade;
 Rect roi;
@@ -30,8 +26,6 @@ auto tp1 = std::chrono::system_clock::now();
 auto tp2 = std::chrono::system_clock::now();
 
 
-SOCKET ListenSocket = INVALID_SOCKET;
-SOCKET ClientSocket = INVALID_SOCKET;
 
 bool done = true;
 
@@ -61,12 +55,12 @@ int main(int argc, const char** argv)
     };
     int camera_device = parser.get<int>("camera");
 
-// Run socket server 
+    //Control for speed
+    int v = 165;
+    namedWindow("Capture - Face detection");
+    createTrackbar("Speed", "Capture - Face detection", &v, 254, NULL);
 
-    std::thread(my_s).detach();
    
-
-
     VideoCapture capture;
     //-- 2. Read the video stream
     capture.open(camera_device);
@@ -91,8 +85,7 @@ int main(int argc, const char** argv)
     Mat z_frame, z_frame2;
     roi = Rect(0, 0, frame.cols, frame.rows);
     Rect cur_roi(0, 0, frame.cols, frame.rows);
-    int v = 90;
-    float d=0;
+    float dx,dy,dw,D=dx=dy=dw=0;
     bool zoom_reached = true;
     Rect target_roi;
     float ar = (float(frame.rows) / float(frame.cols));
@@ -115,61 +108,61 @@ int main(int argc, const char** argv)
         if (i == 0)
             cur_roi = Rect(0, 0, frame.cols, frame.rows);
 
-        if (done && zoom_reached) {
+
+        if (done && zoom_reached) {  //face detected and roi created. Ready to zoom in
             target_roi = roi;
+            //Start panning and zooming gradually frame by frame
+            dx=(target_roi.x - cur_roi.x);
+            dy=(target_roi.y - cur_roi.y);
+            dw = (target_roi.width - cur_roi.width); //Change in width
+            D = sqrt((dx * dx) + (dy * dy));
+            if (((D < 90) && (dw < 60)) || v ==0) {
+                target_roi = cur_roi;
+            }
+
             done = false;
         }
 
-        if (i % v == 0)
+        if (i % 90 == 0)   // Run face detection code only occasionally to save CPU cycles
             std::thread(detectAndDisplay,frame).detach(); 
        
-        float dx(target_roi.x - cur_roi.x);
-        float dy(target_roi.y - cur_roi.y);
-        float dw(target_roi.width - cur_roi.width);
-        float D = sqrt((dx * dx) + (dy * dy));
+        dx = (target_roi.x - cur_roi.x);
+        dy = (target_roi.y - cur_roi.y);
+        dw = (target_roi.width - cur_roi.width); //Change in width
         
- 
-        if (D > 60) {         
-            zoom_reached = false;       
-        }
         
         if (!target_roi.empty() && !cur_roi.empty()) {
-            
-            d =  (v * fElapsedTime);
 
-            cur_roi.x = (dx / v) >= 0 ? (cur_roi.x) + ceil(dx / v) : (cur_roi.x) + floor(dx / v);
+
+            cur_roi.x = (dx / (255-v)) >= 0 ? (cur_roi.x) + ceil(dx / (255-v)) : (cur_roi.x) + floor(dx / (255-v));
             if (cur_roi.x < 0)
                 cur_roi.x = 0;
             if (cur_roi.x > frame.cols)
                 cur_roi.x = frame.cols;
 
-            cur_roi.y = (dy / v) >= 0? (cur_roi.y) + ceil(dy / v) : (cur_roi.y) + floor(dy / v);
+            cur_roi.y = (dy / (255-v)) >= 0? (cur_roi.y) + ceil(dy / (255-v)) : (cur_roi.y) + floor(dy / (255-v));
             if (cur_roi.y < 0)
                 cur_roi.y = 0;
             if (cur_roi.y > frame.rows)
                 cur_roi.y = frame.rows;
 
-            cur_roi.width = (dw / v) >= 0 ? ((cur_roi.width) + ceil(dw / v)) : ((cur_roi.width) + floor(dw / v));
+            cur_roi.width = (dw / (255-v)) >= 0 ? ((cur_roi.width) + ceil(dw / (255-v))) : ((cur_roi.width) + floor(dw / (255-v)));
             if (cur_roi.width < 0)
                 cur_roi.width = 0;
             if (cur_roi.width > frame.cols)
                 cur_roi.width = frame.cols;
-           
-            cur_roi.height = floor(float(cur_roi.width) * ar );
+
+            cur_roi.height = floor(float(cur_roi.width) * ar);
             if (cur_roi.height + cur_roi.y > frame.rows)
-                cur_roi.height = frame.rows - cur_roi.y;
+                cur_roi.y = frame.rows - cur_roi.height;
                                       
-            z_frame = frame(cur_roi);
-            resize(z_frame, z_frame, frame.size(), 0, 0, INTER_LINEAR);
+            z_frame = frame(cur_roi);  // Zoomed frame
+            resize(z_frame, z_frame, frame.size(), 0, 0, INTER_LINEAR); //Fill whole "window"
             imshow("Capture - Face detection", z_frame);
-            z_frame = (z_frame.reshape(0, 1)); // to make it continuous           
-            int  imgSize = z_frame.total() * z_frame.elemSize();
-            writer.write(z_frame);
-            if (ClientSocket != INVALID_SOCKET)
-                int bytes = send(ClientSocket, reinterpret_cast<const char*>(z_frame.data), imgSize, 0);
-            if (abs(cur_roi.x - target_roi.x) < 2 && abs(cur_roi.y - target_roi.y) < 2) {
+            z_frame = (z_frame.reshape(0, 1)); // to make it continuous     
+            writer.write(z_frame);           // Write fame to Gstreamer pipeline
+            if ((cur_roi.x == target_roi.x) && (cur_roi.y == target_roi.y))  {
                 zoom_reached = true;
-                d = 0;
             }
 
 
@@ -206,13 +199,13 @@ void detectAndDisplay(Mat frame)
     //    }
     //}
     if (faces.size() == 0 || faces[0].x < 0 || faces[0].y < 0 || (faces[0].x + faces[0].width > frame.cols) || (faces[0].y + faces[0].height > frame.rows)) {
-//        imshow("Capture - Face detection", frame);
+
           roi = Rect(0, 0, frame.cols, frame.rows);          
     }
     else{
         int new_w(3 * faces[0].width);
         int new_h(floor(float(new_w) * (float(frame.rows) / float(frame.cols))));
-  //      int new_h(3 * faces[0].height);
+
         if (new_w > frame.cols)
             new_w = frame.cols;
         if (new_h > frame.rows)
@@ -231,73 +224,5 @@ void detectAndDisplay(Mat frame)
         roi= Rect(crop_p.x, crop_p.y, new_w, new_h);
         Mat z_frame= frame(roi);
         done = true;
-    }
-}
-int my_s() {
-
-    // Declare some variables
-    WSADATA wsaData;
-
-    int iResult = 0;            // used to return function results
-
-    //// the listening socket to be created
-    //SOCKET ListenSocket = INVALID_SOCKET;
-    //SOCKET ClientSocket = INVALID_SOCKET;
-
-    // The socket address to be passed to bind
-    sockaddr_in service;
-
-    //----------------------
-    // Initialize Winsock
-    iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (iResult != NO_ERROR) {
-        wprintf(L"Error at WSAStartup()\n");
-        return 1;
-    }
-    //----------------------
-    // Create a SOCKET for listening for 
-    // incoming connection requests
-    ListenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (ListenSocket == INVALID_SOCKET) {
-        wprintf(L"socket function failed with error: %u\n", WSAGetLastError());
-        WSACleanup();
-        return 1;
-    }
-    //----------------------
-    // The sockaddr_in structure specifies the address family,
-    // IP address, and port for the socket that is being bound.
-    service.sin_family = AF_INET;
-    service.sin_addr.s_addr = inet_addr("127.0.0.1");
-    service.sin_port = htons(2345);
-
-    //----------------------
-    // Bind the socket.
-    iResult = bind(ListenSocket, (SOCKADDR*)&service, sizeof(service));
-    if (iResult == SOCKET_ERROR) {
-        wprintf(L"bind failed with error %u\n", WSAGetLastError());
-        closesocket(ListenSocket);
-        WSACleanup();
-        return 1;
-    }
-    else
-        wprintf(L"bind returned success\n");
-
-
-    iResult = listen(ListenSocket, SOMAXCONN);
-    if (iResult == SOCKET_ERROR) {
-        printf("listen failed with error: %d\n", WSAGetLastError());
-        closesocket(ListenSocket);
-        WSACleanup();
-        return 1;
-    }
-    // Accept a client socket
-    while (true) {
-        ClientSocket = accept(ListenSocket, NULL, NULL);
-        if (ClientSocket == INVALID_SOCKET) {
-            printf("accept failed with error: %d\n", WSAGetLastError());
-            closesocket(ListenSocket);
-            WSACleanup();
-            //return 1;
-        }
     }
 }
