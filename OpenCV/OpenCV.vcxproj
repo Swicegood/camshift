@@ -19,7 +19,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="CamShift.cpp" />
+    <ProjectReference Include="..\..\..\OpenCVDeviceEnumerator\OpenCVDeviceEnumerator\OpenCVDeviceEnumerator.vcxproj">
+      <Project>{3af6b86d-258d-406c-9bc3-0f243ee730f1}</Project>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
@@ -75,23 +77,27 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(OPENCV_DIR)\..\..\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(OPENCV_DIR)\..\..\include;$(IncludePath);$(WindowsSDK_IncludePath);C:\Users\Jaga\Google Drive\Computer\OpenCVDeviceEnumerator\OpenCVDeviceEnumerator;$(WindowsSDK_IncludePath)</IncludePath>
     <LibraryPath>$(OPENCV_DIR)\lib;$(LibraryPath)</LibraryPath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(OPENCV_DIR)\..\..\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(OPENCV_DIR)\..\..\include;$(IncludePath);$(VC_IncludePath);$(WindowsSDK_IncludePath);C:\Users\Jaga\Google Drive\Computer\OpenCVDeviceEnumerator\OpenCVDeviceEnumerator;$(WindowsSDK_IncludePath)</IncludePath>
     <LibraryPath>$(OPENCV_DIR)\lib;$(LibraryPath)</LibraryPath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(OPENCV_DIR)\..\..\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(OPENCV_DIR)\..\..\include;$(IncludePath);$(WindowsSDK_IncludePath);C:\Users\Jaga\Google Drive\Computer\OpenCVDeviceEnumerator\OpenCVDeviceEnumerator;$(WindowsSDK_IncludePath)</IncludePath>
     <LibraryPath>$(OPENCV_DIR)\lib;$(LibraryPath)</LibraryPath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(OPENCV_DIR)\..\..\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(OPENCV_DIR)\..\..\include;$(IncludePath);$(VC_IncludePath);$(WindowsSDK_IncludePath);C:\Users\Jaga\Google Drive\Computer\OpenCVDeviceEnumerator\OpenCVDeviceEnumerator;$(WindowsSDK_IncludePath)</IncludePath>
     <LibraryPath>$(OPENCV_DIR)\lib;$(LibraryPath)</LibraryPath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -106,7 +112,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opencv_world430d.lib</AdditionalDependencies>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OPENCV_DIR)\lib</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -144,7 +151,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opencv_world430d.lib</AdditionalDependencies>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OPENCV_DIR)\lib</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>

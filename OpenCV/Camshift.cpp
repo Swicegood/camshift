@@ -4,15 +4,20 @@
 #endif
 
 #define WIN32_LEAN_AND_MEAN
-#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+
 
 #include "opencv2/objdetect.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/imgproc.hpp"
 #include "opencv2/videoio.hpp"
-#include <iostream>
 #include <thread>
 #include <stdio.h>
+#include <map>
+#include <iostream>
+#include <wx/wx.h>
+#include "DeviceEnumerator.h"
+#include <vector>
 
 
 //using namespace std;
@@ -29,31 +34,151 @@ auto tp2 = std::chrono::system_clock::now();
 
 bool done = true;
 
-int main(int argc, const char** argv)
+// wxWidgets  Program
+
+
+
+class MyApp : public wxApp
 {
-    
-    CommandLineParser parser(argc, argv,
+public:
+    virtual bool OnInit();
+};
+class MyFrame : public wxFrame
+{
+public:
+    MyFrame();
+private:
+    void OnStart(wxCommandEvent& event);
+    void OnExit(wxCommandEvent& event);
+    void OnAbout(wxCommandEvent& event);
+    void OnSelect(wxCommandEvent& event);
+};
+enum
+{
+    ID_Start = 1
+};
+wxIMPLEMENT_APP(MyApp);
+
+wxRadioButton* r;
+std::vector<wxRadioButton*> rb;
+wxButton* b;
+int r_ID=0;
+
+bool MyApp::OnInit()
+{
+    MyFrame* frame = new MyFrame();
+    /*
+       The id field of the Device struct can be used with an OpenCV VideoCapture object
+   */
+
+    DeviceEnumerator de;
+
+    // Audio Devices
+    std::map<int, Device> devices = de.getAudioDevicesMap();
+
+    // Print information about the devices
+   /* for (auto const& device : devices) {
+        std::cout << "== AUDIO DEVICE (id:" << device.first << ") ==" << std::endl;
+        std::cout << "Name: " << device.second.deviceName << std::endl;
+        std::cout << "Path: " << device.second.devicePath << std::endl;
+    }*/
+
+    // Video Devices
+    devices = de.getVideoDevicesMap();
+
+    // Print information about the devices
+    /*for (auto const& device : devices) {
+        std::cout << "== VIDEO DEVICE (id:" << device.first << ") ==" << std::endl;
+        std::cout << "Name: " << device.second.deviceName << std::endl;
+        std::cout << "Path: " << device.second.devicePath << std::endl;
+    }*/
+    int i=0;
+    for (auto const& device : devices) {
+        if (i == 0)
+            r = new wxRadioButton(frame, device.first, "Webcam "+std::to_string(device.first), wxPoint(20, i), wxDefaultSize, wxRB_GROUP);
+        else
+            r = new wxRadioButton(frame, device.first, "Webcam " + std::to_string(device.first), wxPoint(20, i), wxDefaultSize);
+        rb.push_back(r);
+        i = i + 20;
+    }
+   
+    b = new wxButton(frame, wxID_ANY, "Start", wxPoint(50, i+20));
+    frame->Show(true);
+
+    return true;
+}
+MyFrame::MyFrame()
+    : wxFrame(NULL, wxID_ANY, "Camshift cameras")
+{
+    wxMenu* menuFile = new wxMenu;
+    wxBoxSizer Sizer(wxVERTICAL);
+    menuFile->Append(ID_Start, "&Start...\tCtrl-H",
+        "Start Camshift with the slected camera");
+    menuFile->AppendSeparator();
+    menuFile->Append(wxID_EXIT);
+    wxMenu* menuHelp = new wxMenu;
+    menuHelp->Append(wxID_ABOUT);
+    wxMenuBar* menuBar = new wxMenuBar;
+    menuBar->Append(menuFile, "&File");
+    menuBar->Append(menuHelp, "&Help");
+    SetMenuBar(menuBar);
+    CreateStatusBar();
+    SetStatusText("Welcome to Camshift!");
+    Sizer.Add(this);
+    Bind(wxEVT_MENU, &MyFrame::OnAbout, this, wxID_ABOUT);
+    Bind(wxEVT_MENU, &MyFrame::OnExit, this, wxID_EXIT);
+    Bind(wxEVT_MENU, &MyFrame::OnStart, this, ID_Start);
+    Bind(wxEVT_RADIOBUTTON, &MyFrame::OnSelect, this);
+    Bind(wxEVT_BUTTON, &MyFrame::OnStart, this);
+}
+void MyFrame::OnExit(wxCommandEvent& event)
+{
+    Close(true);
+}
+void MyFrame::OnAbout(wxCommandEvent& event)
+{
+    wxMessageBox("Camshift by Jaga using OpenCV, gStreamer and wxWidgets",
+        "About Camshift", wxOK | wxICON_INFORMATION);
+}
+
+
+
+
+void MyFrame::OnSelect(wxCommandEvent& event)
+{
+
+    r_ID = event.GetId();
+    /*std::string str = std::to_string(r);
+    wxLogMessage(wxFormatString(str));*/
+}
+
+
+int main(int camera_device)
+{
+   /* CommandLineParser parser(
         "{help h||}"
         "{face_cascade|data/haarcascades/haarcascade_frontalface_alt.xml|Path to face cascade.}"
         "{eyes_cascade|data/haarcascades/haarcascade_eye_tree_eyeglasses.xml|Path to eyes cascade.}"
         "{camera|0|Camera device number.}");
     parser.about("\nThis program demonstrates using the cv::CascadeClassifier class to detect objects (Face + eyes) in a video stream.\n"
         "You can use Haar or LBP features.\n\n");
-    parser.printMessage();
-    String face_cascade_name = samples::findFile(parser.get<String>("face_cascade"));
-    String eyes_cascade_name = samples::findFile(parser.get<String>("eyes_cascade"));
+    parser.printMessage();*/
+    String face_cascade_name = "haarcascade_frontalface_alt.xml";
+    String eyes_cascade_name = "haarcascade_eye_tree_eyeglasses.xml";
     //-- 1. Load the cascades
     if (!face_cascade.load(face_cascade_name))
     {
-        std::cout << "--(!)Error loading face cascade\n";
+        wxLogMessage("--(!)Error loading face cascade");
         return -1;
     };
     if (!eyes_cascade.load(eyes_cascade_name))
     {
-        std::cout << "--(!)Error loading eyes cascade\n";
+        wxLogMessage("--(!)Error loading eyes cascade");
         return -1;
     };
-    int camera_device = parser.get<int>("camera");
+   
+    ////start the program
+    //int camera_device = parser.get<int>("camera");
 
     //Control for speed
     int v = 165;
@@ -61,6 +186,7 @@ int main(int argc, const char** argv)
     createTrackbar("Speed", "Capture - Face detection", &v, 254, NULL);
 
    
+
     VideoCapture capture;
     //-- 2. Read the video stream
     capture.open(camera_device);
@@ -225,4 +351,10 @@ void detectAndDisplay(Mat frame)
         Mat z_frame= frame(roi);
         done = true;
     }
+}
+void MyFrame::OnStart(wxCommandEvent& event)
+{
+    
+    int value = main(r_ID);
+    Close(true);
 }
