@@ -1,40 +1,7 @@
-#ifndef UNICODE
-#define UNICODE
-#endif
-
-#define WIN32_LEAN_AND_MEAN
-#define _CRT_SECURE_NO_WARNINGS
-
-#include <opencv2/objdetect.hpp>
-#include <opencv2/highgui.hpp>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/videoio.hpp>
-
+#include "CameraApp.h"
 #include <wx/wx.h>
-
 #include <thread>
-#include <map>
-#include <vector>
-#include <string>
-#include <sstream>
-#include <iostream>
 #include <chrono>
-#include <cmath>
-
-#include "DeviceEnumerator.h"
-
-// Helper function to convert any type to wstring
-template<typename T>
-std::wstring toWString(const T& value) {
-    std::wostringstream woss;
-    woss << value;
-    return woss.str();
-}
-
-// Debug output function for Unicode
-void DebugOutputW(const std::wstring& message) {
-    OutputDebugStringW((message + L"\n").c_str());
-}
 
 // OpenCV and face detection variables
 using namespace cv;
@@ -47,174 +14,6 @@ bool done = true;
 
 auto tp1 = std::chrono::system_clock::now();
 auto tp2 = std::chrono::system_clock::now();
-
-// Forward declaration of face detection function
-void detectAndDisplay(Mat frame);
-
-// wxWidgets Application
-class MyApp : public wxApp {
-public:
-    virtual bool OnInit();
-};
-
-class MyFrame : public wxFrame {
-public:
-    MyFrame();
-    void OnStart(wxCommandEvent& event);
-    void OnSelect(wxCommandEvent& event);
-
-private:
-    // Event handlers
-    void OnExit(wxCommandEvent& event);
-    void OnAbout(wxCommandEvent& event);
-    void OnSelectRes(wxCommandEvent& event);
-
-    // Variables to store selections
-    int r_ID = 0;
-    int sel, resh, resv;
-    wxString reso;
-    std::string resh_str, resv_str;
-    wxChoice* cs;
-    wxChoice* m_choice;
-    wxBoxSizer* m_mainSizer;
-
-};
-
-// Enum for menu IDs
-enum {
-    ID_Start = 1
-};
-
-wxIMPLEMENT_APP(MyApp);
-
-bool MyApp::OnInit() {
-    MyFrame* frame = new MyFrame();
-
-    // Device enumeration
-    DeviceEnumerator de;
-
-    // Get video devices
-    std::map<int, Device> devices = de.getVideoDevicesMap();
-
-    // Debug output of device IDs
-    for (const auto& device : devices) {
-        DebugOutputW(L"Device ID from DeviceEnumerator: " + toWString(device.first));
-    }
-
-    // UI elements
-// Create device selection panel
-    wxPanel* devicePanel = new wxPanel(frame, wxID_ANY);
-    wxBoxSizer* deviceSizer = new wxBoxSizer(wxVERTICAL);
-
-    wxStaticText* deviceLabel = new wxStaticText(devicePanel, wxID_ANY, "Select Camera:");
-    deviceSizer->Add(deviceLabel, 0, wxALL, 5);
-
-    wxRadioButton* r;
-    for (const auto& device : devices) {
-        std::string label = "Webcam " + std::to_string(device.first);
-        r = new wxRadioButton(devicePanel, device.first, label);
-        deviceSizer->Add(r, 0, wxALL, 5);
-        r->Bind(wxEVT_RADIOBUTTON, &MyFrame::OnSelect, frame);
-    }
-
-    devicePanel->SetSizer(deviceSizer);
-    frame->GetSizer()->Insert(0, devicePanel, 0, wxALL | wxEXPAND, 5);
-
-    frame->Layout();
-
-    frame->Show(true);
-    return true;
-}
-
-MyFrame::MyFrame() : wxFrame(NULL, wxID_ANY, "Camshift Cameras", wxDefaultPosition, wxSize(400, 300)) {
-    // Menu setup
-    wxMenu* menuFile = new wxMenu;
-    menuFile->Append(ID_Start, "&Start...\tCtrl-H", "Start Camshift with the selected camera");
-    menuFile->AppendSeparator();
-    menuFile->Append(wxID_EXIT);
-
-    wxMenu* menuHelp = new wxMenu;
-    menuHelp->Append(wxID_ABOUT);
-
-    wxMenuBar* menuBar = new wxMenuBar;
-    menuBar->Append(menuFile, "&File");
-    menuBar->Append(menuHelp, "&Help");
-
-    SetMenuBar(menuBar);
-    CreateStatusBar();
-    SetStatusText("Welcome to Camshift!");
-
-    // Create main sizer
-    m_mainSizer = new wxBoxSizer(wxVERTICAL);
-
-    // Create resolution choices
-    wxArrayString resolutions;
-    resolutions.Add("640x360");
-    resolutions.Add("800x448");
-    resolutions.Add("1280x720");
-
-    // Create and add resolution selector
-    wxStaticText* resolutionLabel = new wxStaticText(this, wxID_ANY, "Select Resolution:");
-    m_mainSizer->Add(resolutionLabel, 0, wxALL, 5);
-
-    m_choice = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, resolutions);
-    m_mainSizer->Add(m_choice, 0, wxALL | wxEXPAND, 5);
-
-    // Create and add start button
-    wxButton* startButton = new wxButton(this, wxID_ANY, "Start");
-    m_mainSizer->Add(startButton, 0, wxALL | wxEXPAND, 5);
-
-    // Set the sizer for the frame
-    SetSizer(m_mainSizer);
-    Layout();
-
-    // Event bindings
-    Bind(wxEVT_MENU, &MyFrame::OnAbout, this, wxID_ABOUT);
-    Bind(wxEVT_MENU, &MyFrame::OnExit, this, wxID_EXIT);
-    Bind(wxEVT_MENU, &MyFrame::OnStart, this, ID_Start);
-    Bind(wxEVT_RADIOBUTTON, &MyFrame::OnSelect, this);
-    startButton->Bind(wxEVT_BUTTON, &MyFrame::OnStart, this);
-    m_choice->Bind(wxEVT_CHOICE, &MyFrame::OnSelectRes, this);
-}
-
-void MyFrame::OnExit(wxCommandEvent& event) {
-    Close(true);
-}
-
-void MyFrame::OnAbout(wxCommandEvent& event) {
-    wxMessageBox("Camshift by Jaga using OpenCV, GStreamer, and wxWidgets",
-        "About Camshift", wxOK | wxICON_INFORMATION);
-}
-
-void MyFrame::OnSelect(wxCommandEvent& event) {
-    r_ID = event.GetId();
-}
-
-void MyFrame::OnSelectRes(wxCommandEvent& event) {
-    if (m_choice) {
-        sel = m_choice->GetSelection();
-        reso = m_choice->GetString(sel);
-
-        // Parse resolution
-        std::string stlstring = std::string(reso.mb_str());
-        std::string delim = "x";
-        resh_str = stlstring.substr(0, stlstring.find(delim));
-        resv_str = stlstring.substr(resh_str.length() + 1);
-
-        resh = std::stoi(resh_str);
-        resv = std::stoi(resv_str);
-    }
-}
-
-
-
-int main(int argc, char** argv)
-{
-    // Initialize the wxWidgets application
-    wxApp::SetInstance(new MyApp());  // Create an instance of your application
-    return wxEntry(argc, argv);       // Start the wxWidgets event loop
-}
-
 
 // Main function that runs the camera capture and face detection
 int runCameraApp(int camera_device, int resh, int resv) {
@@ -353,13 +152,6 @@ int runCameraApp(int camera_device, int resh, int resv) {
     return 0;
 }
 
-void MyFrame::OnStart(wxCommandEvent& event) {
-    if (runCameraApp(r_ID, resh, resv) == 0) {
-        Close(true);
-    }
-}
-
-
 // Function for face detection
 void detectAndDisplay(Mat frame) {
     Mat frame_gray;
@@ -403,3 +195,5 @@ void detectAndDisplay(Mat frame) {
         done = true;
     }
 }
+
+
